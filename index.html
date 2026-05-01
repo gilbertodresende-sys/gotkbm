@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Batalha: Luta pelo Trono de Ferro</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>⚔️ LUTA PELO TRONO DE FERRO ⚔️</h1>
+        
+        <div class="battle-setup">
+            <!-- Time Esquerdo -->
+            <div class="team-side left-side">
+                <h2>Time Esquerdo</h2>
+                
+                <div class="family-selector">
+                    <label>Escolha a Casa:</label>
+                    <select id="leftFamily">
+                        <option value="">-- Selecione --</option>
+                        <option value="Stark" data-color="#FFFFFF">Stark (Branca)</option>
+                        <option value="Lannister" data-color="#8B0000">Lannister (Vermelho Escuro)</option>
+                        <option value="Baratheon" data-color="#FFD700">Baratheon (Amarelo Ouro)</option>
+                        <option value="Targaryen" data-color="#000000">Targaryen (Preto e Borgonha)</option>
+                        <option value="Greyjoy" data-color="#000000">Greyjoy (Preta)</option>
+                        <option value="Tully" data-color="#00008B">Tully (Azul Escuro)</option>
+                        <option value="Arryn" data-color="#87CEEB">Arryn (Azul Claro)</option>
+                        <option value="Tyrrel" data-color="#006400">Tyrrel (Verde Escuro)</option>
+                        <option value="Martell" data-color="#FF7F50">Martell (Laranja Avermelhado)</option>
+                    </select>
+                    <div id="leftFamilyColor" class="family-color"></div>
+                    <div class="special-power">
+                        <label><input type="checkbox" id="leftPower" disabled> Invocar poder</label>
+                    </div>
+                </div>
+
+                <div class="troops-selector">
+                    <div class="troop-input">
+                        <label>Soldados (⚔️ Atq: 10 vs Soldados, 5 vs outros | ❤️ 20)</label>
+                        <input type="number" id="leftSoldiers" min="0" max="100" value="5" class="troop-count">
+                    </div>
+                    <div class="troop-input">
+                        <label>Arqueiros (🏹 Atq: 5 em todos | ❤️ 15)</label>
+                        <input type="number" id="leftArchers" min="0" max="100" value="3" class="troop-count">
+                    </div>
+                    <div class="troop-input">
+                        <label>Cavaleiros (🐴 Atq: 20 vs Soldados, 5 vs Arqueiros, 10 vs Cavaleiros | ❤️ 40)</label>
+                        <input type="number" id="leftKnights" min="0" max="100" value="2" class="troop-count">
+                    </div>
+                </div>
+            </div>
+
+            <!-- VS -->
+            <div class="vs-separator">
+                <span>VS</span>
+            </div>
+
+            <!-- Time Direito -->
+            <div class="team-side right-side">
+                <h2>Time Direito</h2>
+                
+                <div class="family-selector">
+                    <label>Escolha a Casa:</label>
+                    <select id="rightFamily">
+                        <option value="">-- Selecione --</option>
+                        <option value="Stark" data-color="#FFFFFF">Stark (Branca)</option>
+                        <option value="Lannister" data-color="#8B0000">Lannister (Vermelho Escuro)</option>
+                        <option value="Baratheon" data-color="#FFD700">Baratheon (Amarelo Ouro)</option>
+                        <option value="Targaryen" data-color="#000000">Targaryen (Preto e Borgonha)</option>
+                        <option value="Greyjoy" data-color="#000000">Greyjoy (Preta)</option>
+                        <option value="Tully" data-color="#00008B">Tully (Azul Escuro)</option>
+                        <option value="Arryn" data-color="#87CEEB">Arryn (Azul Claro)</option>
+                        <option value="Tyrrel" data-color="#006400">Tyrrel (Verde Escuro)</option>
+                        <option value="Martell" data-color="#FF7F50">Martell (Laranja Avermelhado)</option>
+                    </select>
+                    <div id="rightFamilyColor" class="family-color"></div>
+                    <div class="special-power">
+                        <label><input type="checkbox" id="rightPower" disabled> Invocar poder</label>
+                    </div>
+                </div>
+
+                <div class="troops-selector">
+                    <div class="troop-input">
+                        <label>Soldados (⚔️ Atq: 10 vs Soldados, 5 vs outros | ❤️ 20)</label>
+                        <input type="number" id="rightSoldiers" min="0" max="100" value="5" class="troop-count">
+                    </div>
+                    <div class="troop-input">
+                        <label>Arqueiros (🏹 Atq: 5 em todos | ❤️ 15)</label>
+                        <input type="number" id="rightArchers" min="0" max="100" value="3" class="troop-count">
+                    </div>
+                    <div class="troop-input">
+                        <label>Cavaleiros (🐴 Atq: 20 vs Soldados, 5 vs Arqueiros, 10 vs Cavaleiros | ❤️ 40)</label>
+                        <input type="number" id="rightKnights" min="0" max="100" value="2" class="troop-count">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="start-button-container">
+            <button id="startBattle" class="start-btn">⚔️ COMEÇAR BATALHA ⚔️</button>
+        </div>
+    </div>
+
+    <!-- Battle Arena (hidden initially) -->
+    <div id="battleArena" class="battle-arena hidden">
+        <h2>🔥 BATALHA EM PROGRESSO 🔥</h2>
+        
+        <div class="battle-field">
+            <div class="team-battle left-team">
+                <h3 id="leftTeamName">Time Esquerdo</h3>
+                <div id="leftBattleInfo" class="battle-info"></div>
+            </div>
+            
+            <div class="battle-center">
+                <div id="battleLog" class="battle-log"></div>
+                <div id="roundCounter" class="round-counter">Rodada: 0/7</div>
+            </div>
+            
+            <div class="team-battle right-team">
+                <h3 id="rightTeamName">Time Direito</h3>
+                <div id="rightBattleInfo" class="battle-info"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Result Modal -->
+    <div id="resultModal" class="modal hidden">
+        <div class="modal-content">
+            <h2>⚔️ RESULTADO DA BATALHA ⚔️</h2>
+            <div id="resultBody" class="result-body"></div>
+            <div class="modal-buttons">
+                <button id="restartBattle" class="btn-restart">Nova Batalha</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
