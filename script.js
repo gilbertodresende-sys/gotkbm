@@ -1,77 +1,68 @@
 // ====================
+// Configuração
+// ====================
+
+const SPECIAL_POWER_FAMILIES = ['Greyjoy', 'Stark', 'Targaryen'];
+const BATTLE_MUSIC_PATH = 'audio/battle.mp3';
+const MAX_ROUNDS = 50;
+const ROUND_DELAY_MS = 800;
+
+let currentBattle = null;
+let battleAnimationInterval = null;
+let battleMusic = null;
+let fallbackMusic = null;
+
+// ====================
 // Classes
 // ====================
 
 class Unit {
     constructor(type, family, id) {
-        this.type = type; // 'soldier', 'archer', 'knight'
+        this.type = type;
         this.family = family;
         this.id = id;
         this.alive = true;
-        
-        // Set stats based on type
-        if (type === 'soldier') {
-            this.maxHp = 20;
-            this.hp = 20;
-            this.icon = '⚔️';
-        } else if (type === 'archer') {
-            this.maxHp = 15;
-            this.hp = 15;
-            this.icon = '🏹';
-        } else if (type === 'knight') {
-            this.maxHp = 40;
-            this.hp = 40;
-            this.icon = '🐴';
-        } else if (type === 'wolf') {
-            this.maxHp = 100;
-            this.hp = 100;
-            this.icon = '🐺';
-        } else if (type === 'dragon') {
-            this.maxHp = 150;
-            this.hp = 150;
-            this.icon = '🐉';
-        }
+
+        const stats = {
+            soldier: { hp: 20, icon: '⚔️', label: 'Soldado' },
+            archer: { hp: 15, icon: '🏹', label: 'Arqueiro' },
+            knight: { hp: 40, icon: '🐴', label: 'Cavaleiro' },
+            wolf: { hp: 100, icon: '🐺', label: 'Lobo' },
+            dragon: { hp: 150, icon: '🐉', label: 'Dragão' }
+        };
+
+        const unitStats = stats[type] || stats.soldier;
+        this.maxHp = unitStats.hp;
+        this.hp = unitStats.hp;
+        this.icon = unitStats.icon;
+        this.label = unitStats.label;
     }
-    
+
     takeDamage(damage) {
-        this.hp -= damage;
-        if (this.hp <= 0) {
-            this.hp = 0;
-            this.alive = false;
-        }
+        this.hp = Math.max(0, this.hp - damage);
+        this.alive = this.hp > 0;
     }
-    
+
     getHealthPercentage() {
+        if (this.maxHp <= 0) return 0;
         return (this.hp / this.maxHp) * 100;
     }
-    
+
     calculateDamage(target) {
-        if (this.type === 'soldier') {
-            if (target.type === 'soldier') return 10;
-            else return 5;
-        } else if (this.type === 'archer') {
-            return 5; // 5 contra todos
-        } else if (this.type === 'knight') {
+        if (this.type === 'soldier') return target.type === 'soldier' ? 10 : 5;
+        if (this.type === 'archer') return 5;
+        if (this.type === 'knight') {
             if (target.type === 'soldier') return 20;
-            else if (target.type === 'archer') return 5;
-            else return 10; // vs other knights
-        } else if (this.type === 'wolf') {
-            return 20;
-        } else if (this.type === 'dragon') {
-            return 30;
+            if (target.type === 'archer') return 5;
+            return 10;
         }
+        if (this.type === 'wolf') return 20;
+        if (this.type === 'dragon') return 30;
         return 0;
     }
-    
+
     getDisplayName() {
-        let typeName = '';
-        if (this.type === 'soldier') typeName = 'Soldado';
-        else if (this.type === 'archer') typeName = 'Arqueiro';
-        else if (this.type === 'knight') typeName = 'Cavaleiro';
-        else if (this.type === 'wolf') typeName = 'Lobo';
-        else if (this.type === 'dragon') typeName = 'Dragão';
-        
-        return `${this.icon} ${typeName} #${this.id}`;
+        return `${this.icon} ${this.label} #${this.id}`;
     }
 }
 
@@ -81,33 +72,28 @@ class Team {
         this.family = family;
         this.units = [];
         this.unitIdCounter = 1;
-        
-        // Create soldiers
-        for (let i = 0; i < soldiers; i++) {
-            this.units.push(new Unit('soldier', family, this.unitIdCounter++));
-        }
-        
-        // Create archers
-        for (let i = 0; i < archers; i++) {
-            this.units.push(new Unit('archer', family, this.unitIdCounter++));
-        }
-        
-        // Create knights
-        for (let i = 0; i < knights; i++) {
-            this.units.push(new Unit('knight', family, this.unitIdCounter++));
+
+        this.addUnits('soldier', soldiers);
+        this.addUnits('archer', archers);
+        this.addUnits('knight', knights);
+    }
+
+    addUnits(type, quantity) {
+        for (let i = 0; i < quantity; i++) {
+            this.units.push(new Unit(type, this.family, this.unitIdCounter++));
         }
     }
-    
+
     getAliveUnits() {
-        return this.units.filter(u => u.alive);
+        return this.units.filter(unit => unit.alive);
     }
-    
+
     getRandomAliveUnit() {
         const alive = this.getAliveUnits();
         if (alive.length === 0) return null;
         return alive[Math.floor(Math.random() * alive.length)];
     }
-    
+
     hasAliveUnits() {
         return this.getAliveUnits().length > 0;
     }
@@ -118,404 +104,331 @@ class Battle {
         this.leftTeam = leftTeam;
         this.rightTeam = rightTeam;
         this.currentRound = 0;
-        this.maxRounds = 50;
+        this.maxRounds = MAX_ROUNDS;
         this.battleLog = [];
         this.battleComplete = false;
     }
-    
+
     addLog(message) {
         this.battleLog.push(message);
         console.log(message);
     }
-    
+
     executeRound() {
-        if (this.currentRound >= this.maxRounds || this.battleComplete) {
+        if (this.battleComplete || this.currentRound >= this.maxRounds) return;
+
+        if (!this.leftTeam.hasAliveUnits() || !this.rightTeam.hasAliveUnits()) {
+            this.battleComplete = true;
             return;
         }
-        
+
         this.currentRound++;
         this.addLog(`═══ RODADA ${this.currentRound} ═══`);
-        
-        // Random choice which team attacks
+
         const isLeftAttacking = Math.random() < 0.5;
-        const attacker = isLeftAttacking 
-            ? this.leftTeam.getRandomAliveUnit()
-            : this.rightTeam.getRandomAliveUnit();
-        
-        const target = isLeftAttacking
-            ? this.rightTeam.getRandomAliveUnit()
-            : this.leftTeam.getRandomAliveUnit();
-        
+        const attackingTeam = isLeftAttacking ? this.leftTeam : this.rightTeam;
+        const defendingTeam = isLeftAttacking ? this.rightTeam : this.leftTeam;
+        const attacker = attackingTeam.getRandomAliveUnit();
+        const target = defendingTeam.getRandomAliveUnit();
+
         if (!attacker || !target) {
             this.battleComplete = true;
             return;
         }
-        
-        // Calculate and apply damage
+
         const damage = attacker.calculateDamage(target);
-        const targetWasAlive = target.alive;
+        const wasAlive = target.alive;
         target.takeDamage(damage);
-        
-        // Log the action
-        const attackerTeam = isLeftAttacking ? this.leftTeam.name : this.rightTeam.name;
-        const targetTeam = isLeftAttacking ? this.rightTeam.name : this.leftTeam.name;
-        
-        this.addLog(
-            `${attackerTeam} - ${attacker.getDisplayName()} ataca ` +
-            `${targetTeam} - ${target.getDisplayName()} (Dano: ${damage})`
-        );
-        
-        if (target.alive === false && targetWasAlive) {
-            this.addLog(
-                `☠️ ${target.getDisplayName()} foi morto!`
-            );
+
+        this.addLog(`${attackingTeam.name} - ${attacker.getDisplayName()} ataca ${defendingTeam.name} - ${target.getDisplayName()} (Dano: ${damage})`);
+
+        if (wasAlive && !target.alive) {
+            this.addLog(`☠️ ${defendingTeam.name} perdeu ${target.getDisplayName()}!`);
         }
-        
-        if (this.currentRound >= this.maxRounds) {
+
+        if (!this.leftTeam.hasAliveUnits() || !this.rightTeam.hasAliveUnits() || this.currentRound >= this.maxRounds) {
             this.battleComplete = true;
         }
     }
-    
+
     getResults() {
-        const results = {
+        return {
             leftTeam: this.getTeamResults(this.leftTeam),
             rightTeam: this.getTeamResults(this.rightTeam)
         };
-        return results;
     }
-    
+
     getTeamResults(team) {
-        const byType = {
-            soldier: {
-                alive: 0,
-                woundedLight: 0, // > 50% HP
-                woundedHeavy: 0, // <= 50% HP
-                dead: 0
-            },
-            archer: {
-                alive: 0,
-                woundedLight: 0,
-                woundedHeavy: 0,
-                dead: 0
-            },
-            knight: {
-                alive: 0,
-                woundedLight: 0,
-                woundedHeavy: 0,
-                dead: 0
-            },
-            wolf: {
-                alive: 0,
-                woundedLight: 0,
-                woundedHeavy: 0,
-                dead: 0
-            },
-            dragon: {
-                alive: 0,
-                woundedLight: 0,
-                woundedHeavy: 0,
-                dead: 0
-            }
-        };
-        
+        const byType = createEmptyResults();
+
         team.units.forEach(unit => {
             const stats = byType[unit.type];
-            
+            if (!stats) return;
+
             if (!unit.alive) {
                 stats.dead++;
-            } else {
-                const healthPercent = unit.getHealthPercentage();
-                if (healthPercent === 100) {
-                    stats.alive++;
-                } else if (healthPercent > 50) {
-                    stats.woundedLight++;
-                } else {
-                    stats.woundedHeavy++;
-                }
+                return;
             }
+
+            const healthPercent = unit.getHealthPercentage();
+            if (healthPercent === 100) stats.alive++;
+            else if (healthPercent > 50) stats.woundedLight++;
+            else stats.woundedHeavy++;
         });
-        
+
         return byType;
     }
 }
 
+function createEmptyResults() {
+    const template = { alive: 0, woundedLight: 0, woundedHeavy: 0, dead: 0 };
+    return {
+        soldier: { ...template },
+        archer: { ...template },
+        knight: { ...template },
+        wolf: { ...template },
+        dragon: { ...template }
+    };
+}
+
 // ====================
-// Global Variables
+// Áudio
 // ====================
 
-let currentBattle = null;
-let battleAnimationInterval = null;
+function setAudioStatus(message, type = '') {
+    const status = document.getElementById('audioStatus');
+    if (!status) return;
+    status.innerHTML = message;
+    status.className = `audio-status ${type}`.trim();
+}
+
+async function playBattleMusic() {
+    stopBattleMusic();
+
+    battleMusic = document.getElementById('battleMusic');
+    if (!battleMusic) {
+        setAudioStatus('Áudio não encontrado no HTML.', 'error');
+        return;
+    }
+
+    battleMusic.loop = true;
+    battleMusic.currentTime = 0;
+
+    try {
+        await battleMusic.play();
+        setAudioStatus('Áudio da batalha tocando.', 'ok');
+    } catch (error) {
+        console.warn('Falha no áudio principal. Tentando fallback.', error);
+        try {
+            fallbackMusic = new Audio(BATTLE_MUSIC_PATH);
+            fallbackMusic.loop = true;
+            await fallbackMusic.play();
+            setAudioStatus('Áudio tocando via fallback.', 'warn');
+        } catch (fallbackError) {
+            console.warn('Não foi possível tocar o áudio.', fallbackError);
+            setAudioStatus('Áudio não tocou. Confira se existe o arquivo <strong>audio/battle.mp3</strong>.', 'error');
+        }
+    }
+}
+
+function stopBattleMusic() {
+    const mainAudio = battleMusic || document.getElementById('battleMusic');
+
+    if (mainAudio) {
+        mainAudio.pause();
+        mainAudio.currentTime = 0;
+    }
+
+    if (fallbackMusic) {
+        fallbackMusic.pause();
+        fallbackMusic.currentTime = 0;
+        fallbackMusic = null;
+    }
+}
 
 // ====================
-// Validation & Setup
+// Validação e criação da batalha
 // ====================
 
-function getFamily(familyElement) {
-    return familyElement.value;
+function readNumber(id) {
+    const value = parseInt(document.getElementById(id).value, 10);
+    return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 function validateBattleSetup() {
     const leftFamily = document.getElementById('leftFamily').value;
     const rightFamily = document.getElementById('rightFamily').value;
-    
+
     if (!leftFamily || !rightFamily) {
         alert('Por favor, selecione uma casa para cada time!');
         return false;
     }
-    
+
     if (leftFamily === rightFamily) {
         alert('As duas casas devem ser diferentes!');
         return false;
     }
-    
-    const leftSoldiers = parseInt(document.getElementById('leftSoldiers').value) || 0;
-    const leftArchers = parseInt(document.getElementById('leftArchers').value) || 0;
-    const leftKnights = parseInt(document.getElementById('leftKnights').value) || 0;
+
+    const leftTotal = readNumber('leftSoldiers') + readNumber('leftArchers') + readNumber('leftKnights');
+    const rightTotal = readNumber('rightSoldiers') + readNumber('rightArchers') + readNumber('rightKnights');
     const leftPower = document.getElementById('leftPower').checked;
-    
-    const rightSoldiers = parseInt(document.getElementById('rightSoldiers').value) || 0;
-    const rightArchers = parseInt(document.getElementById('rightArchers').value) || 0;
-    const rightKnights = parseInt(document.getElementById('rightKnights').value) || 0;
     const rightPower = document.getElementById('rightPower').checked;
-    
-    const leftHasUnits = leftSoldiers + leftArchers + leftKnights > 0 || (leftPower && SPECIAL_POWER_FAMILIES.includes(leftFamily));
-    const rightHasUnits = rightSoldiers + rightArchers + rightKnights > 0 || (rightPower && SPECIAL_POWER_FAMILIES.includes(rightFamily));
-    
-    if (!leftHasUnits) {
+
+    if (leftTotal <= 0 && !leftPower) {
         alert('O time esquerdo deve ter pelo menos uma unidade ou invocar um poder especial!');
         return false;
     }
-    
-    if (!rightHasUnits) {
+
+    if (rightTotal <= 0 && !rightPower) {
         alert('O time direito deve ter pelo menos uma unidade ou invocar um poder especial!');
         return false;
     }
-    
+
     return true;
 }
 
-function applySpecialPower(team, family, invokePower) {
+function applySpecialPower(team, family, invokePower, battle) {
     if (!invokePower) return;
-    
+
     if (family === 'Greyjoy') {
-        for (let i = 0; i < 5; i++) {
-            team.units.push(new Unit('soldier', family, team.unitIdCounter++));
-            team.units.push(new Unit('archer', family, team.unitIdCounter++));
-        }
+        team.addUnits('soldier', 5);
+        team.addUnits('archer', 5);
+        battle.addLog(`${family} invoca a Caravela: +5 Soldados e +5 Arqueiros entram na batalha.`);
     }
-    
+
     if (family === 'Stark') {
-        team.units.push(new Unit('wolf', family, team.unitIdCounter++));
+        team.addUnits('wolf', 1);
+        battle.addLog(`${family} invoca o Lobo Branco para entrar na batalha.`);
     }
-    
+
     if (family === 'Targaryen') {
-        team.units.push(new Unit('dragon', family, team.unitIdCounter++));
+        team.addUnits('dragon', 1);
+        battle.addLog(`${family} invoca um Dragão para entrar na batalha.`);
     }
 }
 
 function createBattle() {
     const leftFamily = document.getElementById('leftFamily').value;
     const rightFamily = document.getElementById('rightFamily').value;
-    const leftInvoke = document.getElementById('leftPower').checked;
-    const rightInvoke = document.getElementById('rightPower').checked;
-    
-    const leftSoldiers = parseInt(document.getElementById('leftSoldiers').value) || 0;
-    const leftArchers = parseInt(document.getElementById('leftArchers').value) || 0;
-    const leftKnights = parseInt(document.getElementById('leftKnights').value) || 0;
-    
-    const rightSoldiers = parseInt(document.getElementById('rightSoldiers').value) || 0;
-    const rightArchers = parseInt(document.getElementById('rightArchers').value) || 0;
-    const rightKnights = parseInt(document.getElementById('rightKnights').value) || 0;
-    
-    const leftTeam = new Team(leftFamily, leftFamily, leftSoldiers, leftArchers, leftKnights);
-    applySpecialPower(leftTeam, leftFamily, leftInvoke);
-    const rightTeam = new Team(rightFamily, rightFamily, rightSoldiers, rightArchers, rightKnights);
-    applySpecialPower(rightTeam, rightFamily, rightInvoke);
-    
+
+    const leftTeam = new Team(leftFamily, leftFamily, readNumber('leftSoldiers'), readNumber('leftArchers'), readNumber('leftKnights'));
+    const rightTeam = new Team(rightFamily, rightFamily, readNumber('rightSoldiers'), readNumber('rightArchers'), readNumber('rightKnights'));
     const battle = new Battle(leftTeam, rightTeam);
-    
-    if (leftInvoke && leftFamily === 'Greyjoy') {
-        battle.addLog(`Greyjoy invoca uma caravela e aumenta soldados e arqueiros em +5!`);
-    }
-    if (rightInvoke && rightFamily === 'Greyjoy') {
-        battle.addLog(`Greyjoy invoca uma caravela e aumenta soldados e arqueiros em +5!`);
-    }
-    if (leftInvoke && leftFamily === 'Stark') {
-        battle.addLog(`Stark invoca o Lobo e ele entra na batalha!`);
-    }
-    if (rightInvoke && rightFamily === 'Stark') {
-        battle.addLog(`Stark invoca o Lobo e ele entra na batalha!`);
-    }
-    if (leftInvoke && leftFamily === 'Targaryen') {
-        battle.addLog(`Targaryen invoca o Dragão e ele entra na batalha!`);
-    }
-    if (rightInvoke && rightFamily === 'Targaryen') {
-        battle.addLog(`Targaryen invoca o Dragão e ele entra na batalha!`);
-    }
-    
+
+    applySpecialPower(leftTeam, leftFamily, document.getElementById('leftPower').checked, battle);
+    applySpecialPower(rightTeam, rightFamily, document.getElementById('rightPower').checked, battle);
+
     return battle;
 }
 
 // ====================
-// UI Updates
+// Interface
 // ====================
-
-const SPECIAL_POWER_FAMILIES = ['Greyjoy', 'Stark', 'Targaryen'];
 
 function updateFamilyColor(selectId, colorId) {
     const select = document.getElementById(selectId);
     const colorDiv = document.getElementById(colorId);
-    
-    if (select.selectedIndex > 0) {
-        const selectedOption = select.options[select.selectedIndex];
-        const color = selectedOption.getAttribute('data-color');
-        colorDiv.style.backgroundColor = color;
-    } else {
-        colorDiv.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-    }
+    const selectedOption = select.options[select.selectedIndex];
+
+    colorDiv.style.backgroundColor = selectedOption?.getAttribute('data-color') || 'rgba(255, 255, 255, 0.1)';
 }
 
 function updatePowerCheckbox(selectId, checkboxId) {
     const family = document.getElementById(selectId).value;
     const checkbox = document.getElementById(checkboxId);
-    if (SPECIAL_POWER_FAMILIES.includes(family)) {
-        checkbox.disabled = false;
-    } else {
-        checkbox.checked = false;
-        checkbox.disabled = true;
-    }
-}
 
-function updateBattleDisplay() {
-    // Update left team
-    const leftContainer = document.getElementById('leftBattleInfo');
-    leftContainer.innerHTML = '';
-    currentBattle.leftTeam.units.forEach(unit => {
-        const unitEl = createUnitElement(unit);
-        leftContainer.appendChild(unitEl);
-    });
-    
-    // Update right team
-    const rightContainer = document.getElementById('rightBattleInfo');
-    rightContainer.innerHTML = '';
-    currentBattle.rightTeam.units.forEach(unit => {
-        const unitEl = createUnitElement(unit);
-        rightContainer.appendChild(unitEl);
-    });
-    
-    // Update round counter
-    document.getElementById('roundCounter').textContent = `Rodada: ${currentBattle.currentRound}/${currentBattle.maxRounds}`;
-    
-    // Update battle log
-    updateBattleLog();
+    checkbox.disabled = !SPECIAL_POWER_FAMILIES.includes(family);
+    if (checkbox.disabled) checkbox.checked = false;
 }
 
 function createUnitElement(unit) {
     const div = document.createElement('div');
     div.className = unit.alive ? 'unit' : 'unit dead';
-    
+
     const name = document.createElement('span');
     name.className = 'unit-name';
     name.textContent = unit.getDisplayName();
-    
+
     const hpContainer = document.createElement('span');
     hpContainer.className = 'unit-hp';
-    
+
     const hpBar = document.createElement('div');
     hpBar.className = 'hp-bar';
-    
+
     const hpFill = document.createElement('div');
     hpFill.className = 'hp-fill';
-    hpFill.style.width = unit.getHealthPercentage() + '%';
-    
-    hpBar.appendChild(hpFill);
-    hpContainer.appendChild(hpBar);
-    
+    hpFill.style.width = `${unit.getHealthPercentage()}%`;
+
     const hpText = document.createElement('span');
     hpText.textContent = `${unit.hp}/${unit.maxHp}`;
+
+    hpBar.appendChild(hpFill);
+    hpContainer.appendChild(hpBar);
     hpContainer.appendChild(hpText);
-    
     div.appendChild(name);
     div.appendChild(hpContainer);
-    
+
     return div;
+}
+
+function updateBattleDisplay() {
+    if (!currentBattle) return;
+
+    const leftContainer = document.getElementById('leftBattleInfo');
+    const rightContainer = document.getElementById('rightBattleInfo');
+
+    leftContainer.innerHTML = '';
+    rightContainer.innerHTML = '';
+
+    currentBattle.leftTeam.units.forEach(unit => leftContainer.appendChild(createUnitElement(unit)));
+    currentBattle.rightTeam.units.forEach(unit => rightContainer.appendChild(createUnitElement(unit)));
+
+    document.getElementById('roundCounter').textContent = `Rodada: ${currentBattle.currentRound}/${currentBattle.maxRounds}`;
+    updateBattleLog();
 }
 
 function updateBattleLog() {
     const logContainer = document.getElementById('battleLog');
     logContainer.innerHTML = '';
-    
-    currentBattle.battleLog.forEach((log, index) => {
+
+    currentBattle.battleLog.forEach(log => {
         const entry = document.createElement('div');
-        
-        if (log.includes('Rodada')) {
-            entry.className = 'log-entry round';
-        } else if (log.includes('☠️')) {
-            entry.className = 'log-entry death';
-        } else if (log.includes('ataca')) {
-            entry.className = 'log-entry damage';
-        }
-        
+        entry.className = 'log-entry';
+
+        if (log.includes('RODADA')) entry.classList.add('round');
+        if (log.includes('☠️')) entry.classList.add('death');
+        if (log.includes('ataca')) entry.classList.add('damage');
+
         entry.textContent = log;
         logContainer.appendChild(entry);
     });
-    
-    // Scroll to bottom
+
     logContainer.scrollTop = logContainer.scrollHeight;
 }
 
 function showBattleArena() {
     document.querySelector('.battle-setup').classList.add('hidden');
     document.querySelector('.start-button-container').classList.add('hidden');
-    document.getElementById('battleArena').classList.remove('hidden');
-    
-    // Set background themes based on families
-    const leftFamily = currentBattle.leftTeam.family;
-    const rightFamily = currentBattle.rightTeam.family;
-    
+
+    const battleArena = document.getElementById('battleArena');
+    battleArena.className = 'battle-arena';
+    battleArena.dataset.leftFamily = currentBattle.leftTeam.family;
+    battleArena.dataset.rightFamily = currentBattle.rightTeam.family;
+
     document.getElementById('leftTeamName').textContent = currentBattle.leftTeam.name;
     document.getElementById('rightTeamName').textContent = currentBattle.rightTeam.name;
-    
-    // Add background themes
-    const battleArena = document.getElementById('battleArena');
-    battleArena.className = 'battle-arena hidden';
-    battleArena.classList.remove('hidden');
-    battleArena.setAttribute('data-left-family', leftFamily);
-    battleArena.setAttribute('data-right-family', rightFamily);
-    
-    updateBattleDisplay();
-}
 
-function showResults() {
-    document.getElementById('battleArena').classList.add('hidden');
-    document.getElementById('resultModal').classList.remove('hidden');
-    
-    const results = currentBattle.getResults();
-    const resultBody = document.getElementById('resultBody');
-    resultBody.innerHTML = '';
-    
-    // Left team results
-    const leftResult = createTeamResultHTML(currentBattle.leftTeam, results.leftTeam);
-    resultBody.appendChild(leftResult);
-    
-    // Right team results
-    const rightResult = createTeamResultHTML(currentBattle.rightTeam, results.rightTeam);
-    resultBody.appendChild(rightResult);
-    
-    // Battle summary
-    const summary = createBattleSummary(results, currentBattle.leftTeam, currentBattle.rightTeam);
-    resultBody.appendChild(summary);
+    updateBattleDisplay();
 }
 
 function createTeamResultHTML(team, results) {
     const div = document.createElement('div');
     div.className = 'team-result';
-    
+
     const title = document.createElement('h3');
     title.textContent = `🏰 ${team.name}`;
     div.appendChild(title);
-    
-    const types = ['soldier', 'archer', 'knight', 'wolf', 'dragon'];
+
     const typeNames = {
         soldier: '⚔️ Soldados',
         archer: '🏹 Arqueiros',
@@ -523,180 +436,168 @@ function createTeamResultHTML(team, results) {
         wolf: '🐺 Lobo',
         dragon: '🐉 Dragão'
     };
-    
-    types.forEach(type => {
+
+    Object.keys(typeNames).forEach(type => {
         const stats = results[type];
-        if (!stats) return;
         const total = stats.alive + stats.woundedLight + stats.woundedHeavy + stats.dead;
         if (total === 0) return;
+
         const statsDiv = document.createElement('div');
         statsDiv.className = 'unit-stats';
         statsDiv.innerHTML = `
             <strong>${typeNames[type]}:</strong><br>
-            <span class="stat-item stat-alive">✓ Vivos: ${stats.alive}</span>
-            <span class="stat-item stat-wounded-light">⚠️ Feridos Leves: ${stats.woundedLight}</span>
-            <span class="stat-item stat-wounded-heavy">🩹 Feridos Graves: ${stats.woundedHeavy}</span>
+            <span class="stat-item stat-alive">✓ Vivos sem dano: ${stats.alive}</span>
+            <span class="stat-item stat-wounded-light">⚠️ Feridos leves: ${stats.woundedLight}</span>
+            <span class="stat-item stat-wounded-heavy">🩹 Feridos graves: ${stats.woundedHeavy}</span>
             <span class="stat-item stat-dead">☠️ Mortos: ${stats.dead}</span>
         `;
         div.appendChild(statsDiv);
     });
-    
+
     return div;
+}
+
+function calculateTotals(teamResults) {
+    return Object.values(teamResults).reduce((acc, stats) => {
+        acc.alive += stats.alive;
+        acc.woundedLight += stats.woundedLight;
+        acc.woundedHeavy += stats.woundedHeavy;
+        acc.dead += stats.dead;
+        return acc;
+    }, { alive: 0, woundedLight: 0, woundedHeavy: 0, dead: 0 });
 }
 
 function createBattleSummary(results, leftTeam, rightTeam) {
     const div = document.createElement('div');
     div.className = 'team-result';
-    
+
     const title = document.createElement('h3');
     title.textContent = '⚔️ Resumo da Batalha';
     div.appendChild(title);
-    
-    // Calculate totals by family
-    const calculateFamilyTotals = (teamResults) => {
-        return {
-            alive: teamResults.soldier.alive + teamResults.archer.alive + teamResults.knight.alive + 
-                   teamResults.wolf.alive + teamResults.dragon.alive,
-            woundedLight: teamResults.soldier.woundedLight + teamResults.archer.woundedLight + teamResults.knight.woundedLight + 
-                          teamResults.wolf.woundedLight + teamResults.dragon.woundedLight,
-            woundedHeavy: teamResults.soldier.woundedHeavy + teamResults.archer.woundedHeavy + teamResults.knight.woundedHeavy + 
-                          teamResults.wolf.woundedHeavy + teamResults.dragon.woundedHeavy,
-            dead: teamResults.soldier.dead + teamResults.archer.dead + teamResults.knight.dead + 
-                  teamResults.wolf.dead + teamResults.dragon.dead
-        };
-    };
-    
-    const leftTotals = calculateFamilyTotals(results.leftTeam);
-    const rightTotals = calculateFamilyTotals(results.rightTeam);
-    
-    const leftAlive = leftTotals.alive;
-    const rightAlive = rightTotals.alive;
-    
-    let winner = 'Empate';
-    let resultClass = '';
-    
-    if (leftAlive > rightAlive) {
-        winner = `🏆 ${leftTeam.name} Venceu!`;
-        resultClass = 'stat-alive';
-    } else if (rightAlive > leftAlive) {
-        winner = `🏆 ${rightTeam.name} Venceu!`;
-        resultClass = 'stat-alive';
-    }
-    
-    const summary = document.createElement('div');
-    summary.className = 'unit-stats';
-    summary.innerHTML = `
-        <strong>${winner}</strong><br>
-    `;
-    div.appendChild(summary);
-    
-    // Left team totals
-    const leftTotalDiv = document.createElement('div');
-    leftTotalDiv.className = 'unit-stats family-totals';
-    leftTotalDiv.innerHTML = `
-        <strong>📊 ${leftTeam.name} - Totais:</strong><br>
-        <span class="stat-item stat-alive">✓ Vivos: ${leftTotals.alive}</span>
-        <span class="stat-item stat-wounded-light">⚠️ Feridos Leves: ${leftTotals.woundedLight}</span>
-        <span class="stat-item stat-wounded-heavy">🩹 Feridos Graves: ${leftTotals.woundedHeavy}</span>
-        <span class="stat-item stat-dead">☠️ Mortos: ${leftTotals.dead}</span>
-    `;
-    div.appendChild(leftTotalDiv);
-    
-    // Right team totals
-    const rightTotalDiv = document.createElement('div');
-    rightTotalDiv.className = 'unit-stats family-totals';
-    rightTotalDiv.innerHTML = `
-        <strong>📊 ${rightTeam.name} - Totais:</strong><br>
-        <span class="stat-item stat-alive">✓ Vivos: ${rightTotals.alive}</span>
-        <span class="stat-item stat-wounded-light">⚠️ Feridos Leves: ${rightTotals.woundedLight}</span>
-        <span class="stat-item stat-wounded-heavy">🩹 Feridos Graves: ${rightTotals.woundedHeavy}</span>
-        <span class="stat-item stat-dead">☠️ Mortos: ${rightTotals.dead}</span>
-    `;
-    div.appendChild(rightTotalDiv);
-    
+
+    const leftTotals = calculateTotals(results.leftTeam);
+    const rightTotals = calculateTotals(results.rightTeam);
+    const leftRemaining = leftTotals.alive + leftTotals.woundedLight + leftTotals.woundedHeavy;
+    const rightRemaining = rightTotals.alive + rightTotals.woundedLight + rightTotals.woundedHeavy;
+
+    let winner = '⚖️ Empate';
+    if (leftRemaining > rightRemaining) winner = `🏆 ${leftTeam.name} venceu!`;
+    if (rightRemaining > leftRemaining) winner = `🏆 ${rightTeam.name} venceu!`;
+
+    const winnerDiv = document.createElement('div');
+    winnerDiv.className = 'unit-stats family-totals';
+    winnerDiv.innerHTML = `<strong>${winner}</strong><br>Critério: maior quantidade de unidades sobreviventes.`;
+    div.appendChild(winnerDiv);
+
+    [
+        { team: leftTeam, totals: leftTotals },
+        { team: rightTeam, totals: rightTotals }
+    ].forEach(({ team, totals }) => {
+        const totalDiv = document.createElement('div');
+        totalDiv.className = 'unit-stats family-totals';
+        totalDiv.innerHTML = `
+            <strong>📊 ${team.name} - Totais:</strong><br>
+            <span class="stat-item stat-alive">✓ Vivos sem dano: ${totals.alive}</span>
+            <span class="stat-item stat-wounded-light">⚠️ Feridos leves: ${totals.woundedLight}</span>
+            <span class="stat-item stat-wounded-heavy">🩹 Feridos graves: ${totals.woundedHeavy}</span>
+            <span class="stat-item stat-dead">☠️ Mortos: ${totals.dead}</span>
+        `;
+        div.appendChild(totalDiv);
+    });
+
     return div;
 }
 
-// ====================
-// Battle Animation
-// ====================
+function showResults() {
+    stopBattleMusic();
+    document.getElementById('battleArena').classList.add('hidden');
+    document.getElementById('resultModal').classList.remove('hidden');
+
+    const results = currentBattle.getResults();
+    const resultBody = document.getElementById('resultBody');
+    resultBody.innerHTML = '';
+
+    resultBody.appendChild(createTeamResultHTML(currentBattle.leftTeam, results.leftTeam));
+    resultBody.appendChild(createTeamResultHTML(currentBattle.rightTeam, results.rightTeam));
+    resultBody.appendChild(createBattleSummary(results, currentBattle.leftTeam, currentBattle.rightTeam));
+}
 
 function runBattleAnimation() {
-    let roundCount = 0;
-    
+    clearInterval(battleAnimationInterval);
+
     battleAnimationInterval = setInterval(() => {
-        if (!currentBattle.battleComplete) {
-            currentBattle.executeRound();
-            updateBattleDisplay();
-            roundCount++;
-            
-            if (currentBattle.battleComplete || roundCount >= 50) {
-                clearInterval(battleAnimationInterval);
-                
-                // Wait a bit then show results
-                setTimeout(() => {
-                    showResults();
-                }, 1000);
-            }
+        if (!currentBattle || currentBattle.battleComplete) {
+            clearInterval(battleAnimationInterval);
+            setTimeout(showResults, 1000);
+            return;
         }
-    }, 800); // 0.8 second per round for faster action
+
+        currentBattle.executeRound();
+        updateBattleDisplay();
+
+        if (currentBattle.battleComplete) {
+            clearInterval(battleAnimationInterval);
+            setTimeout(showResults, 1000);
+        }
+    }, ROUND_DELAY_MS);
+}
+
+function resetBattleForm() {
+    stopBattleMusic();
+    clearInterval(battleAnimationInterval);
+
+    document.getElementById('resultModal').classList.add('hidden');
+    document.getElementById('battleArena').classList.add('hidden');
+    document.querySelector('.battle-setup').classList.remove('hidden');
+    document.querySelector('.start-button-container').classList.remove('hidden');
+
+    ['leftFamily', 'rightFamily'].forEach(id => document.getElementById(id).value = '');
+    ['leftSoldiers', 'rightSoldiers'].forEach(id => document.getElementById(id).value = 5);
+    ['leftArchers', 'rightArchers'].forEach(id => document.getElementById(id).value = 3);
+    ['leftKnights', 'rightKnights'].forEach(id => document.getElementById(id).value = 2);
+
+    ['leftPower', 'rightPower'].forEach(id => {
+        const checkbox = document.getElementById(id);
+        checkbox.checked = false;
+        checkbox.disabled = true;
+    });
+
+    updateFamilyColor('leftFamily', 'leftFamilyColor');
+    updateFamilyColor('rightFamily', 'rightFamilyColor');
+
+    currentBattle = null;
+    setAudioStatus('Áudio: coloque o arquivo em <strong>audio/battle.mp3</strong>. Ele tocará após clicar em Começar Batalha.');
 }
 
 // ====================
-// Event Listeners
+// Inicialização
 // ====================
 
-document.getElementById('leftFamily').addEventListener('change', () => {
-    updateFamilyColor('leftFamily', 'leftFamilyColor');
+document.addEventListener('DOMContentLoaded', () => {
+    battleMusic = document.getElementById('battleMusic');
+    if (battleMusic) battleMusic.loop = true;
+
     updatePowerCheckbox('leftFamily', 'leftPower');
-});
-
-document.getElementById('rightFamily').addEventListener('change', () => {
-    updateFamilyColor('rightFamily', 'rightFamilyColor');
     updatePowerCheckbox('rightFamily', 'rightPower');
-});
 
-document.getElementById('startBattle').addEventListener('click', () => {
-    if (validateBattleSetup()) {
+    document.getElementById('leftFamily').addEventListener('change', () => {
+        updateFamilyColor('leftFamily', 'leftFamilyColor');
+        updatePowerCheckbox('leftFamily', 'leftPower');
+    });
+
+    document.getElementById('rightFamily').addEventListener('change', () => {
+        updateFamilyColor('rightFamily', 'rightFamilyColor');
+        updatePowerCheckbox('rightFamily', 'rightPower');
+    });
+
+    document.getElementById('startBattle').addEventListener('click', async () => {
+        if (!validateBattleSetup()) return;
+
         currentBattle = createBattle();
         showBattleArena();
+        await playBattleMusic();
         runBattleAnimation();
-    }
-});
+    });
 
-document.getElementById('restartBattle').addEventListener('click', () => {
-    // Close modal
-    document.getElementById('resultModal').classList.add('hidden');
-    
-    // Show setup screen
-    document.querySelector('.battle-setup').classList.remove('hidden');
-    document.querySelector('.start-button-container').classList.remove('hidden');
-    
-    // Reset form
-    document.getElementById('leftFamily').value = '';
-    document.getElementById('rightFamily').value = '';
-    document.getElementById('leftSoldiers').value = 5;
-    document.getElementById('leftArchers').value = 3;
-    document.getElementById('leftKnights').value = 2;
-    document.getElementById('rightSoldiers').value = 5;
-    document.getElementById('rightArchers').value = 3;
-    document.getElementById('rightKnights').value = 2;
-    document.getElementById('leftPower').checked = false;
-    document.getElementById('rightPower').checked = false;
-    document.getElementById('leftPower').disabled = true;
-    document.getElementById('rightPower').disabled = true;
-    
-    // Update colors
-    document.getElementById('leftFamilyColor').style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-    document.getElementById('rightFamilyColor').style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-    
-    // Clear data
-    currentBattle = null;
-});
-
-// Initialize on load
-window.addEventListener('DOMContentLoaded', () => {
-    updatePowerCheckbox('leftFamily', 'leftPower');
-    updatePowerCheckbox('rightFamily', 'rightPower');
-    console.log('Game loaded!');
+    document.getElementById('restartBattle').addEventListener('click', resetBattleForm);
 });

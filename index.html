@@ -7,27 +7,31 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <audio id="battleMusic" preload="auto" loop>
+        <source src="audio/battle.mp3" type="audio/mpeg">
+        Seu navegador não suporta áudio HTML5.
+    </audio>
+
     <div class="container">
         <h1>⚔️ LUTA PELO TRONO DE FERRO ⚔️</h1>
         
         <div class="battle-setup">
-            <!-- Time Esquerdo -->
             <div class="team-side left-side">
-                <h2>Time Esquerdo</h2>
+                <h2>Time 01</h2>
                 
                 <div class="family-selector">
                     <label>Escolha a Casa:</label>
                     <select id="leftFamily">
                         <option value="">-- Selecione --</option>
-                        <option value="Stark" data-color="#FFFFFF">Stark (Branca)</option>
-                        <option value="Lannister" data-color="#8B0000">Lannister (Vermelho Escuro)</option>
-                        <option value="Baratheon" data-color="#FFD700">Baratheon (Amarelo Ouro)</option>
-                        <option value="Targaryen" data-color="#000000">Targaryen (Preto e Borgonha)</option>
-                        <option value="Greyjoy" data-color="#000000">Greyjoy (Preta)</option>
-                        <option value="Tully" data-color="#00008B">Tully (Azul Escuro)</option>
-                        <option value="Arryn" data-color="#87CEEB">Arryn (Azul Claro)</option>
-                        <option value="Tyrrel" data-color="#006400">Tyrrel (Verde Escuro)</option>
-                        <option value="Martell" data-color="#FF7F50">Martell (Laranja Avermelhado)</option>
+                        <option value="Stark" data-color="#FFFFFF">Stark</option>
+                        <option value="Lannister" data-color="#8B0000">Lannister</option>
+                        <option value="Baratheon" data-color="#FFD700">Baratheon</option>
+                        <option value="Targaryen" data-color="#000000">Targaryen</option>
+                        <option value="Greyjoy" data-color="#000000">Greyjoy</option>
+                        <option value="Tully" data-color="#00008B">Tully</option>
+                        <option value="Arryn" data-color="#87CEEB">Arryn</option>
+                        <option value="Tyrell" data-color="#006400">Tyrell</option>
+                        <option value="Martell" data-color="#FF7F50">Martell</option>
                     </select>
                     <div id="leftFamilyColor" class="family-color"></div>
                     <div class="special-power">
@@ -51,28 +55,24 @@
                 </div>
             </div>
 
-            <!-- VS -->
-            <div class="vs-separator">
-                <span>VS</span>
-            </div>
+            <div class="vs-separator"><span>VS</span></div>
 
-            <!-- Time Direito -->
             <div class="team-side right-side">
-                <h2>Time Direito</h2>
+                <h2>Time 02</h2>
                 
                 <div class="family-selector">
                     <label>Escolha a Casa:</label>
                     <select id="rightFamily">
                         <option value="">-- Selecione --</option>
-                        <option value="Stark" data-color="#FFFFFF">Stark (Branca)</option>
-                        <option value="Lannister" data-color="#8B0000">Lannister (Vermelho Escuro)</option>
-                        <option value="Baratheon" data-color="#FFD700">Baratheon (Amarelo Ouro)</option>
-                        <option value="Targaryen" data-color="#000000">Targaryen (Preto e Borgonha)</option>
-                        <option value="Greyjoy" data-color="#000000">Greyjoy (Preta)</option>
-                        <option value="Tully" data-color="#00008B">Tully (Azul Escuro)</option>
-                        <option value="Arryn" data-color="#87CEEB">Arryn (Azul Claro)</option>
-                        <option value="Tyrrel" data-color="#006400">Tyrrel (Verde Escuro)</option>
-                        <option value="Martell" data-color="#FF7F50">Martell (Laranja Avermelhado)</option>
+                        <option value="Stark" data-color="#FFFFFF">Stark</option>
+                        <option value="Lannister" data-color="#8B0000">Lannister</option>
+                        <option value="Baratheon" data-color="#FFD700">Baratheon</option>
+                        <option value="Targaryen" data-color="#000000">Targaryen</option>
+                        <option value="Greyjoy" data-color="#000000">Greyjoy</option>
+                        <option value="Tully" data-color="#00008B">Tully</option>
+                        <option value="Arryn" data-color="#87CEEB">Arryn</option>
+                        <option value="Tyrell" data-color="#006400">Tyrell</option>
+                        <option value="Martell" data-color="#FF7F50">Martell</option>
                     </select>
                     <div id="rightFamilyColor" class="family-color"></div>
                     <div class="special-power">
@@ -100,23 +100,20 @@
         <div class="start-button-container">
             <button id="startBattle" class="start-btn">⚔️ COMEÇAR BATALHA ⚔️</button>
         </div>
+        <!-- div id="audioStatus" class="audio-status">Áudio: coloque o arquivo em <strong>audio/battle.mp3</strong>. Ele tocará após clicar em Começar Batalha.</div -->
     </div>
 
-    <!-- Battle Arena (hidden initially) -->
     <div id="battleArena" class="battle-arena hidden">
         <h2>🔥 BATALHA EM PROGRESSO 🔥</h2>
-        
         <div class="battle-field">
             <div class="team-battle left-team">
                 <h3 id="leftTeamName">Time Esquerdo</h3>
                 <div id="leftBattleInfo" class="battle-info"></div>
             </div>
-            
             <div class="battle-center">
                 <div id="battleLog" class="battle-log"></div>
-                <div id="roundCounter" class="round-counter">Rodada: 0/7</div>
+                <div id="roundCounter" class="round-counter">Rodada: 0/50</div>
             </div>
-            
             <div class="team-battle right-team">
                 <h3 id="rightTeamName">Time Direito</h3>
                 <div id="rightBattleInfo" class="battle-info"></div>
@@ -124,7 +121,6 @@
         </div>
     </div>
 
-    <!-- Result Modal -->
     <div id="resultModal" class="modal hidden">
         <div class="modal-content">
             <h2>⚔️ RESULTADO DA BATALHA ⚔️</h2>
